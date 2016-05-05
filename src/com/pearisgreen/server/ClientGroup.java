@@ -1,40 +1,43 @@
 package com.pearisgreen.server;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
-public class ClientGroup
+import com.pearisgreen.client.SocketMethod;
+
+public class ClientGroup implements Serializable
 {
 	public Server server;
 	
-	public ArrayList<Client> clients = new ArrayList<Client>();
+	public ArrayList<SClient> clients = new ArrayList<SClient>();
 	
 	public ClientGroup()
 	{
 		
 	}
 	
-	public void addClient(Client cl)
+	public void addClient(SClient cl)
 	{
 		cl.setClientGroup(this);
 		
 		clients.add(cl);
 	}
 	
-	public void removeClient(Client cl)
+	public void removeClient(SClient cl)
 	{
 		clients.remove(cl);
 	}
 	
-	public synchronized void sendToClients(Client sender, Byte by)
+	public synchronized void sendToClients(SClient sender, SocketMethod sm)
 	{
-		for(Client cl : clients)
+		System.out.println("conn clients: " + clients.size());
+		
+		for(SClient cl : clients)
 		{	
 			if(cl != sender)
 			{
-				cl.sendToClient(by);
+				cl.sendToClient(sm);
 			}
-			
-			System.out.println("test");
 		}
 	}
 }

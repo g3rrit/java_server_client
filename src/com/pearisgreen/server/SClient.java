@@ -1,12 +1,25 @@
 package com.pearisgreen.server;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.net.Socket;
 
-public class Client implements Runnable
+import com.pearisgreen.client.SocketMethod;
+
+public class SClient implements Runnable, Serializable
 {
+	
+	public enum State
+	{
+		LFG, 
+		LFM,
+		GROUPED
+	};
+	
+	private State state = State.LFM;
+	
 	private Server server;
 	
 	private ClientGroup clientGroup;
@@ -16,12 +29,14 @@ public class Client implements Runnable
 	private Socket socket;
 	private int ID;
 	
-	private InputStream in;
-	private OutputStream out;
+	private String name = "null";
+	
+	private ObjectOutputStream out;
+	private ObjectInputStream in;
 	
 	private volatile boolean listening = false;
 	
-	public Client(Server server, ClientGroup clientGroup, int ID)
+	public SClient(Server server, ClientGroup clientGroup, int ID)
 	{
 		this.server = server;
 		
@@ -38,8 +53,8 @@ public class Client implements Runnable
 		{
 			try
 			{
-				in = socket.getInputStream();
-				out = socket.getOutputStream();
+				out = new ObjectOutputStream(socket.getOutputStream());
+				in = new ObjectInputStream(socket.getInputStream());
 			} catch (IOException e)
 			{
 				e.printStackTrace();
@@ -92,47 +107,40 @@ public class Client implements Runnable
 	{
 		listening = true;
 		
-		Byte by = 0;
+		SocketMethod sm;
 		
 		while(listening)
 		{
 			try
 			{
-				by = (byte) in.read();
+				sm = (SocketMethod) in.readObject();
 				
-				System.out.println("receiving message");
-				System.out.println(by);
-			} catch (IOException e)
+				if(!sm.serverCommand(this, server))
+				{
+					clientGroup.sendToClients(this, sm);
+				}
+				
+			} catch (IOException | ClassNotFoundException e)
 			{
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			
-			//check here for commands
-			
-			clientGroup.sendToClients(this, by);
+	
 		}
 	}
 	
-	public boolean sendToClient(Byte by)
+	public void sendToClient(SocketMethod sm)
 	{
-		//byte[] by = message.getBytes();
-		
 		try
 		{
-			out.write(by);
+			out.writeObject(sm);
 		} catch (IOException e)
 		{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-			
-			System.out.println("couldnt send to client");
-			
-			return false;
 		}
-		
-		return true;
 	}
+	
 
 	public void setClientGroup(ClientGroup clientGroup)
 	{
@@ -142,6 +150,26 @@ public class Client implements Runnable
 	public ClientGroup getClientGroup()
 	{
 		return clientGroup;
+	}
+
+	public String getName()
+	{
+		return name;
+	}
+
+	public void setName(String name)
+	{
+		this.name = name;
+	}
+	
+	public State getState()
+	{
+		return state;
+	}
+
+	public void setState(State state)
+	{
+		this.state = state;
 	}
 
 }

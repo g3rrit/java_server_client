@@ -1,33 +1,48 @@
 package com.pearisgreen.client;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.net.Socket;
 import java.util.Stack;
 
-public class Client implements Runnable
+import com.pearisgreen.server.SClient;
+import com.pearisgreen.server.Server;
+
+public abstract class Client implements Runnable, Serializable
 {
-	private Socket socket;
+	private transient Socket socket;
 	
 	private boolean listening = false;
+	
+	private String name;
 	
 	private String ipAdress;
 	private int port;
 	
-	private InputStream in;
-	private OutputStream out;
+	private transient ObjectOutputStream out;
+	private transient ObjectInputStream in;
 	
-	private volatile Stack<Byte> messageStack = new Stack<Byte>();
+	private transient volatile Stack<SocketMethod> messageStack = new Stack<SocketMethod>();
 	
-	Thread thread;
+	private transient Thread thread;
 	
-	public Client(String ipAdress, int port)
+	public Client(String name, String ipAdress, int port)
 	{
+		this.name = name;
 		this.ipAdress = ipAdress;
 		this.port = port;
-		
 	}
+	
+	protected abstract void processString(String name, String str);
+	
+	protected abstract void processInteger(String name, int num);
+	
+	protected abstract void processDouble(String name, double num);
+	
+	protected abstract void processObject(String name, DataObject obj);
+
 	
 	public boolean connectToServer()
 	{
@@ -35,8 +50,9 @@ public class Client implements Runnable
 		{
 			socket = new Socket(ipAdress, port);
 			
-			in = socket.getInputStream();
-			out = socket.getOutputStream();
+			out = new ObjectOutputStream(socket.getOutputStream());
+			in = new ObjectInputStream(socket.getInputStream());
+			
 		} catch (IOException e)
 		{
 			// TODO Auto-generated catch block
@@ -85,34 +101,153 @@ public class Client implements Runnable
 		System.out.println("client cleaned up");
 	}
 	
-	public void sendToServer(byte by)
+	
+	
+	/*
+	 * SEND INFORMATION TO OTHER CLIENTS
+	 */
+	
+	public void sendToServer(DataObject obj)
+	{
+		sendToServer(new SocketMethod()
+		{
+
+			@Override
+			public void apply(Client cl)
+			{
+				cl.processObject(cl.getName(), obj);
+			}
+			
+		});
+	}
+	
+	public void sendToServer(double num)
+	{
+		sendToServer(new SocketMethod()
+		{
+
+			@Override
+			public void apply(Client cl)
+			{
+				cl.processDouble(cl.getName(), num);
+			}
+			
+		});
+	}
+	
+	public void sendToServer(int num)
+	{
+		sendToServer(new SocketMethod()
+		{
+
+			@Override
+			public void apply(Client cl)
+			{
+				cl.processInteger(cl.getName(), num);
+			}
+			
+		});
+	}
+	
+	public void sendToServer(String str)
+	{
+		sendToServer(new SocketMethod()
+		{
+
+			@Override
+			public void apply(Client cl)
+			{
+				cl.processString(cl.getName(), str);
+			}
+			
+		});
+	}
+	
+	private void sendToServer(SocketMethod sm)
 	{
 		try
 		{
-			out.write((byte) by);
+			out.writeObject(sm);
 		} catch (IOException e)
 		{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-			
-			System.out.println("couldnt send to server");
 		}
 	}
+	////////////////////////////////////////
+	
+	/*
+	 *	SERVER COMMANDS
+	 */
+	
+	
+	public enum Scommand
+	{
+		SETNAME(new SFunction()
+		{
+			@Override
+			public void apply(SClient scl, Server sc)
+			{
+				scl.setName("test");
+			}	
+		}),
+		
+		CONNECTTORANDOM(new SFunction()
+		{
+			@Override
+			public void apply(SClient scl, Server sv)
+			{
+				sv.connectWithRandom(scl);
+			}
+		});
+		
+		private SFunction sf;
+		
+		Scommand(SFunction ssf)
+		{
+			sf = ssf;
+		}
+		
+	}
+	
+	public void commandServer(Scommand sc)
+	{
+		sendToServer(new SocketMethod()
+		{
+			@Override
+			public void apply(Client cl)
+			{
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public boolean serverCommand(SClient scl, Server sv)
+			{	
+				sc.sf.apply(scl, sv);
+				
+				return true;
+			}
+		});
+	}
+	/////////////////////////////////////////////
 
 	@Override
 	public void run()
 	{
 		listening = true;
 		
+		SocketMethod sm;
+		
 		while(listening)
-		{
-			//delete this later
-			System.out.println("receiving message");
-			
+		{	
 			try
 			{
-				pushStack((byte)in.read());
-			} catch (IOException e)
+				sm = (SocketMethod) in.readObject();
+				
+				messageStack.push(sm);
+				
+			} catch (IOException | ClassNotFoundException e)
 			{
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -120,22 +255,19 @@ public class Client implements Runnable
 		}
 	}
 	
-	private synchronized void pushStack(Byte by)
+	protected synchronized void popStack()	
 	{
-		messageStack.push(by);
+		if(!messageStack.empty())
+			messageStack.pop().apply(this);
 	}
-	
-	public synchronized Byte[] getStack()
+
+	public String getName()
 	{
-		int size = messageStack.size();
-		
-		Byte[] byA = new Byte[size];
-		
-		for(int i = 0; i < size; i++)
-		{
-			byA[i] = messageStack.pop();
-		}
-		
-		return byA;
+		return name;
+	}
+
+	public void setName(String name)
+	{
+		this.name = name;
 	}
 }

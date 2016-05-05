@@ -1,13 +1,15 @@
 package com.pearisgreen.server;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Server implements Runnable
-{
+public class Server implements Runnable, Serializable
+{	
 	private int port;
 	private String ipAdress;
 	
@@ -17,7 +19,7 @@ public class Server implements Runnable
 	
 	private ServerSocket serverSocket;
 	
-	private HashMap<Integer, Client> clients = new HashMap<Integer, Client>();
+	private HashMap<Integer, SClient> clients = new HashMap<Integer, SClient>();
 	
 	public Server(int port)
 	{
@@ -52,7 +54,8 @@ public class Server implements Runnable
 		{
 			ClientGroup clientGroup = new ClientGroup();
 			
-			Client client = new Client(this,clientGroup, clientCount);
+			SClient client = new SClient(this,clientGroup, clientCount);
+			clientGroup.addClient(client);
 			
 			if(client.bindClient())
 			{	
@@ -61,8 +64,6 @@ public class Server implements Runnable
 				client.start();
 
 				clients.put(clientCount, client);
-				
-				client.sendToClient((byte)0x000A);
 
 				clientCount++;
 			}
@@ -73,7 +74,7 @@ public class Server implements Runnable
 	{
 		listening = false;
 		
-		for(Map.Entry<Integer, Client> entry : clients.entrySet())
+		for(Map.Entry<Integer, SClient> entry : clients.entrySet())
 		{
 			entry.getValue().stop();
 		}
@@ -111,5 +112,43 @@ public class Server implements Runnable
 			e.printStackTrace();
 		}
 		return null;
+	}
+	
+	public ArrayList<SClient> getClients(SClient.State state)
+	{
+		ArrayList<SClient> tempArrayList = new ArrayList<SClient>();
+		
+		for(Map.Entry<Integer, SClient> entry : clients.entrySet())
+		{
+			if(entry.getValue().getState() == state)
+				tempArrayList.add(entry.getValue());
+		}
+		
+		return tempArrayList;
+	}
+	
+	public String getClientsString(SClient.State state)
+	{
+		String tempStr = "";
+		 
+		ArrayList<SClient> tempArrayList = getClients(state);
+		
+		for(SClient cl : tempArrayList)
+		{
+			tempStr = tempStr + cl.getName() + " - ";
+		}
+		
+		return tempStr;
+	}
+	
+	public void connectWithRandom(SClient cl)
+	{
+		for(Map.Entry<Integer, SClient> entry : clients.entrySet())
+		{
+			if(entry.getValue().getState() == SClient.State.LFM && entry.getValue() != cl)
+			{
+				entry.getValue().getClientGroup().addClient(cl);
+			}
+		}
 	}
 }

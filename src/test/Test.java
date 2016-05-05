@@ -10,15 +10,16 @@ public class Test
 
 	public static void main(String[] args)
 	{
+		
 		Server server = new Server(14000);
 		server.startListening();
 		
 		
-		Client client = new Client("127.0.0.1", 14000);
+		Client client = new Client("gerri", "127.0.0.1", 14000);
 		client.connectToServer();
 		client.start();
 		
-		Client client2 = new Client("127.0.0.1", 14000);
+		Client client2 = new Client("domin", "127.0.0.1", 14000);
 		client2.connectToServer();
 		client2.start();
 		
@@ -26,9 +27,18 @@ public class Test
 		{
 			System.out.println("reading client input: ");
 			
-			client.sendToServer((byte)30);
+			client.sendToServer("hallo");
 			
-			client.sendToServer((byte)50);
+			client.sendToServer((byte)2);
+			
+			client.sendToServer("testsending");
+			
+			String[] str = client.getStack();
+			
+			for(int i = 0 ; i < str.length; i++)
+			{
+				System.out.println(str[i]);
+			}
 			
 			try
 			{
@@ -39,5 +49,13 @@ public class Test
 				e.printStackTrace();
 			}
 		}
+		
+		/*
+		String testS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!'§$%&/()=?";
+		
+		for(int i = 0; i < testS.length(); i++)
+		{
+			System.out.println(testS.getBytes()[i]);
+		}*/
 	}
 }
