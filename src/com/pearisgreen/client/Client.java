@@ -7,44 +7,35 @@ import java.io.Serializable;
 import java.net.Socket;
 import java.util.Stack;
 
+import com.pearisgreen.client.ServerCommand.Command;
+import com.pearisgreen.server.ClientIdentifier;
 import com.pearisgreen.server.SClient;
 import com.pearisgreen.server.Server;
 
 public abstract class Client implements Runnable, Serializable
 {
-	private transient Socket socket;
+	private Socket socket;
 	
 	private boolean listening = false;
 	
 	private String name;
 	
-	private String ipAdress;
-	private int port;
+	private ObjectOutputStream out;
+	private ObjectInputStream in;
 	
-	private transient ObjectOutputStream out;
-	private transient ObjectInputStream in;
+	private volatile Stack<DataObject> messageStack = new Stack<DataObject>();
 	
-	private transient volatile Stack<SocketMethod> messageStack = new Stack<SocketMethod>();
+	private Thread thread;
 	
-	private transient Thread thread;
-	
-	public Client(String name, String ipAdress, int port)
+	public Client(String name)
 	{
 		this.name = name;
-		this.ipAdress = ipAdress;
-		this.port = port;
 	}
 	
-	protected abstract void processString(String name, String str);
-	
-	protected abstract void processInteger(String name, int num);
-	
-	protected abstract void processDouble(String name, double num);
-	
-	protected abstract void processObject(String name, DataObject obj);
+	protected abstract void processObject(DataObject obj);
 
 	
-	public boolean connectToServer()
+	public boolean connectToServer(String ipAdress, int port)
 	{
 		try
 		{
@@ -58,7 +49,7 @@ public abstract class Client implements Runnable, Serializable
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 			
-			System.out.println("couldnt bin to server");
+			System.out.println("couldnt bind to server");
 			
 			return false;
 		}
@@ -101,77 +92,19 @@ public abstract class Client implements Runnable, Serializable
 		System.out.println("client cleaned up");
 	}
 	
-	
-	
 	/*
 	 * SEND INFORMATION TO OTHER CLIENTS
 	 */
-	
 	public void sendToServer(DataObject obj)
-	{
-		sendToServer(new SocketMethod()
-		{
-
-			@Override
-			public void apply(Client cl)
-			{
-				cl.processObject(cl.getName(), obj);
-			}
-			
-		});
-	}
-	
-	public void sendToServer(double num)
-	{
-		sendToServer(new SocketMethod()
-		{
-
-			@Override
-			public void apply(Client cl)
-			{
-				cl.processDouble(cl.getName(), num);
-			}
-			
-		});
-	}
-	
-	public void sendToServer(int num)
-	{
-		sendToServer(new SocketMethod()
-		{
-
-			@Override
-			public void apply(Client cl)
-			{
-				cl.processInteger(cl.getName(), num);
-			}
-			
-		});
-	}
-	
-	public void sendToServer(String str)
-	{
-		sendToServer(new SocketMethod()
-		{
-
-			@Override
-			public void apply(Client cl)
-			{
-				cl.processString(cl.getName(), str);
-			}
-			
-		});
-	}
-	
-	private void sendToServer(SocketMethod sm)
 	{
 		try
 		{
-			out.writeObject(sm);
+			out.writeObject(obj);
 		} catch (IOException e)
 		{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			System.out.println("couldnt send dataobject to server");
 		}
 	}
 	////////////////////////////////////////
@@ -180,56 +113,42 @@ public abstract class Client implements Runnable, Serializable
 	 *	SERVER COMMANDS
 	 */
 	
-	
-	public enum Scommand
+	public void commandServerConnectToRandom()
 	{
-		SETNAME(new SFunction()
-		{
-			@Override
-			public void apply(SClient scl, Server sc)
-			{
-				scl.setName("test");
-			}	
-		}),
-		
-		CONNECTTORANDOM(new SFunction()
+		sendToServer(new ServerCommand(ServerCommand.Command.CONNECTWITHRANDOM));
+	}
+	/*
+	public void commandServerSetName(String name)
+	{
+		commandServer(new SFunction()
 		{
 			@Override
 			public void apply(SClient scl, Server sv)
 			{
-				sv.connectWithRandom(scl);
-			}
+				scl.setName(name);
+			}	
 		});
-		
-		private SFunction sf;
-		
-		Scommand(SFunction ssf)
-		{
-			sf = ssf;
-		}
-		
 	}
 	
-	public void commandServer(Scommand sc)
+	private void commandServer(SFunction sf)
 	{
 		sendToServer(new SocketMethod()
 		{
 			@Override
 			public void apply(Client cl)
 			{
-				// TODO Auto-generated method stub
-				
+				// dont do anything here
 			}
 			
 			@Override
 			public boolean serverCommand(SClient scl, Server sv)
 			{	
-				sc.sf.apply(scl, sv);
+				sf.apply(scl, sv);
 				
 				return true;
 			}
 		});
-	}
+	}*/
 	/////////////////////////////////////////////
 
 	@Override
@@ -237,37 +156,57 @@ public abstract class Client implements Runnable, Serializable
 	{
 		listening = true;
 		
-		SocketMethod sm;
+		DataObject dob = null;
 		
 		while(listening)
 		{	
 			try
 			{
-				sm = (SocketMethod) in.readObject();
+				dob = (DataObject) in.readObject();
 				
-				messageStack.push(sm);
+				messageStack.push(dob);
 				
 			} catch (IOException | ClassNotFoundException e)
 			{
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+				
+				stop();
 			}
 		}
 	}
 	
+	/*
+	
+	private boolean sendAndReceiveCI()
+	{
+		commandServerSetName(clientIdentifier.name);
+		
+		//get ClientIdentifier from server
+		SocketMethod sm = null;
+		try
+		{
+			sm = (SocketMethod) in.readObject();
+		} catch (IOException | ClassNotFoundException e)
+		{
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			
+			return false;
+		}
+		sm.apply(this);
+		
+		return true;
+	}*/
+	
 	protected synchronized void popStack()	
 	{
 		if(!messageStack.empty())
-			messageStack.pop().apply(this);
+			processObject(messageStack.pop());
 	}
 
 	public String getName()
 	{
-		return name;
-	}
-
-	public void setName(String name)
-	{
-		this.name = name;
+		return this.name;
 	}
 }

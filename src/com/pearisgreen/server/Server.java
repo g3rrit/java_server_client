@@ -19,7 +19,7 @@ public class Server implements Runnable, Serializable
 	
 	private ServerSocket serverSocket;
 	
-	private HashMap<Integer, SClient> clients = new HashMap<Integer, SClient>();
+	private HashMap<Long, SClient> clients = new HashMap<Long, SClient>();
 	
 	public Server(int port)
 	{
@@ -48,7 +48,7 @@ public class Server implements Runnable, Serializable
 	{
 		listening = true;
 		
-		int clientCount = 0;
+		long clientCount = 0;
 		
 		while(listening)
 		{
@@ -74,7 +74,7 @@ public class Server implements Runnable, Serializable
 	{
 		listening = false;
 		
-		for(Map.Entry<Integer, SClient> entry : clients.entrySet())
+		for(Map.Entry<Long, SClient> entry : clients.entrySet())
 		{
 			entry.getValue().stop();
 		}
@@ -89,12 +89,12 @@ public class Server implements Runnable, Serializable
 		}
 	}
 	
-	public void addClients(int acceptor, int donor)
+	public void addClients(long acceptor, long donor)
 	{
 		clients.get(acceptor).getClientGroup().addClient(clients.get(donor));
 	}
 	
-	public void removeClient(int id)
+	public void removeClient(long id)
 	{
 		clients.get(id).stop();
 		
@@ -118,7 +118,7 @@ public class Server implements Runnable, Serializable
 	{
 		ArrayList<SClient> tempArrayList = new ArrayList<SClient>();
 		
-		for(Map.Entry<Integer, SClient> entry : clients.entrySet())
+		for(Map.Entry<Long, SClient> entry : clients.entrySet())
 		{
 			if(entry.getValue().getState() == state)
 				tempArrayList.add(entry.getValue());
@@ -143,7 +143,7 @@ public class Server implements Runnable, Serializable
 	
 	public void connectWithRandom(SClient cl)
 	{
-		for(Map.Entry<Integer, SClient> entry : clients.entrySet())
+		for(Map.Entry<Long, SClient> entry : clients.entrySet())
 		{
 			if(entry.getValue().getState() == SClient.State.LFM && entry.getValue() != cl)
 			{

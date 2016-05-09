@@ -6,7 +6,8 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.net.Socket;
 
-import com.pearisgreen.client.SocketMethod;
+import com.pearisgreen.client.DataObject;
+import com.pearisgreen.client.ServerCommand;
 
 public class SClient implements Runnable, Serializable
 {
@@ -27,22 +28,21 @@ public class SClient implements Runnable, Serializable
 	private Thread thread;
 	
 	private Socket socket;
-	private int ID;
 	
-	private String name = "null";
+	private ClientIdentifier clientIdentifier = new ClientIdentifier("nll", 0);
 	
 	private ObjectOutputStream out;
 	private ObjectInputStream in;
 	
 	private volatile boolean listening = false;
 	
-	public SClient(Server server, ClientGroup clientGroup, int ID)
+	public SClient(Server server, ClientGroup clientGroup, long ID)
 	{
 		this.server = server;
 		
 		this.clientGroup = clientGroup;
 		
-		this.ID = ID;
+		this.clientIdentifier = new ClientIdentifier("nll", ID);
 	}
 	
 	public boolean bindClient()
@@ -96,7 +96,7 @@ public class SClient implements Runnable, Serializable
 			e.printStackTrace();
 		}
 		
-		server.removeClient(ID);
+		server.removeClient(clientIdentifier.ID);
 		clientGroup.removeClient(this);
 		
 		System.out.println("client cleaned up");
@@ -107,37 +107,84 @@ public class SClient implements Runnable, Serializable
 	{
 		listening = true;
 		
-		SocketMethod sm;
+		DataObject dob = null;
 		
 		while(listening)
 		{
 			try
 			{
-				sm = (SocketMethod) in.readObject();
+				dob = (DataObject) in.readObject();
 				
-				if(!sm.serverCommand(this, server))
+				if(!dob.isServerCommand())
 				{
-					clientGroup.sendToClients(this, sm);
+					dob.setClientIdentifier(this.clientIdentifier);
+					
+					clientGroup.sendToClients(this, dob);
+				}
+				else
+				{
+					ServerCommand sec = (ServerCommand) dob;
+					
+					switch(sec.getCommand())
+					{
+					case CONNECTWITHRANDOM:
+						server.connectWithRandom(this);
+						break;
+					}
 				}
 				
 			} catch (IOException | ClassNotFoundException e)
 			{
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+				
+				stop();
 			}
 	
 		}
 	}
 	
-	public void sendToClient(SocketMethod sm)
+	/*
+	private boolean sendAndReceiveCI()
+	{
+		SocketMethod sm = null;
+		try
+		{
+			sm = (SocketMethod) in.readObject();
+			
+			sm.serverCommand(this, server);
+			
+		} catch (ClassNotFoundException | IOException e1)
+		{
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+			
+			return false;
+		}
+		
+		sendToClient(new SocketMethod()
+		{
+			@Override
+			public void apply(Client cl)
+			{
+				cl.setClientIdentifier(clientIdentifier);
+			}	
+		});
+		
+		return true;
+	}*/
+	
+	public void sendToClient(DataObject dob)
 	{
 		try
 		{
-			out.writeObject(sm);
+			out.writeObject(dob);
 		} catch (IOException e)
 		{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			
+			stop();
 		}
 	}
 	
@@ -154,12 +201,12 @@ public class SClient implements Runnable, Serializable
 
 	public String getName()
 	{
-		return name;
+		return this.clientIdentifier.name;
 	}
 
 	public void setName(String name)
 	{
-		this.name = name;
+		this.clientIdentifier.name = name;
 	}
 	
 	public State getState()

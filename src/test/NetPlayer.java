@@ -6,6 +6,7 @@ import com.pear.fx.drawables.Drawable;
 import com.pear.geometry.Point;
 import com.pearisgreen.client.Client;
 import com.pearisgreen.client.DataObject;
+import com.pearisgreen.server.ClientIdentifier;
 
 public class NetPlayer extends Client implements Drawable
 {
@@ -18,7 +19,7 @@ public class NetPlayer extends Client implements Drawable
 	
 	public NetPlayer(int color, int xpos, int ypos)
 	{
-		super("gerrit", "127.0.0.1", 14000);
+		super("territ");
 		
 		this.color = color;
 		
@@ -30,13 +31,13 @@ public class NetPlayer extends Client implements Drawable
 	
 	public void startListening()
 	{
-		connectToServer();
+		connectToServer("127.0.0.1", 14000);
 		start();
 	}
 	
 	public void connectWithRandom()
 	{
-		commandServer(Client.Scommand.CONNECTTORANDOM);
+		commandServerConnectToRandom();
 	}
 	
 	public void update(float dt)
@@ -81,29 +82,10 @@ public class NetPlayer extends Client implements Drawable
 	}
 
 	@Override
-	protected void processString(String name, String str)
+	protected void processObject(DataObject obj)
 	{
-		// TODO Auto-generated method stub
+		System.out.println(obj.getClientIdentifier().name);
 		
-	}
-
-	@Override
-	protected void processInteger(String name, int num)
-	{
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	protected void processDouble(String name, double num)
-	{
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	protected void processObject(String name, DataObject obj)
-	{
 		setXpos(((DataPoint) obj).x);
 		setYpos(((DataPoint) obj).y);
 	}
