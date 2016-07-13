@@ -201,7 +201,7 @@ public abstract class Client implements Runnable, Serializable
 	
 	protected synchronized void popStack()	
 	{
-		if(!messageStack.empty())
+		while(!messageStack.empty())
 			processObject(messageStack.pop());
 	}
 
